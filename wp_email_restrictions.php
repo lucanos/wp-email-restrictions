@@ -9,14 +9,30 @@ Author URI: http://jystewart.net/process/
 */
 
 function wp_email_restrictions_restrict( $user_login , &$user_email , &$errors ){
+  $whitelist = get_option( 'email_restrictions_domain_list' , array() );
   $user_email = urldecode( $user_email );
   list( $username , $domain ) = split( '@' , $user_email , 2 );
-  $whitelist = get_option( 'email_restrictions_domain_list' );
-  if( empty( $whitelist ) ){
-    $whitelist = array( '' );
-    update_option( 'email_restrictions_domain_list' , $whitelist , '' , 'no' );
+  $domain = strtolower( $domain );
+  $check_pass   = false;
+  $regex_regex  = '^\/.+\/$';
+  $array_domain = preg_grep( $regex_regex , $whitelist , PREG_GREP_INVERT );
+  $array_regex  = preg_grep( $regex_regex , $whitelist );
+  if( count( $array_domain ) ){
+    if( array_search( strtolower( $domain ) , $array_domain ) ){
+      # Matched Exact Domain
+      $check_pass = true;
+    }
   }
-  if( array_search( strtolower( $domain ) , $whitelist )===false ){
+  if( count( $array_regex ) ){
+    foreach( $array_regex as $regex ){
+      if( preg_match( $regex , $domain ) ){
+        # Regular Expression Match
+        $check_pass = true;
+        break; # foreach loop
+      }
+    }
+  }
+  if( !$check_pass ){
     $errors->add( 'invalid_email' , __( '<strong>ERROR</strong>: Only email addresses from approved domains allowed' ) , array( 'form-field' => 'email' ) );
     $user_email = '';
   }
